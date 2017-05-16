@@ -6,6 +6,9 @@ Reader for the newspaper XML files
 import argparse
 import glob
 
+import datetime
+import pandas
+from iso8601 import iso8601
 from lxml import etree
 
 argparser = argparse.ArgumentParser(description="Newspaper XML parser", fromfile_prefix_chars='@')
@@ -39,9 +42,29 @@ def find_by_block_id(xmls, block_id):
         if elements:
             return elements[0]
 
+    return False
 
-some_dir = data_root + 'newspapers/fin/1854/1457-4616/1457-4616_1854-08-01_31/alto/'
-xmls = read_xml_directory(some_dir)
+
+def format_path(doc, issues):
+    issue_no = issues.loc[issues['url'] == doc['URL']]['no'].iloc[0]
+    date = doc['Date'].to_pydatetime().date()
+    formatted = 'newspapers/fin/{y}/{issn}/{issn}_{isodate}_{issue}/alto/'.\
+        format(issn=doc['ISSN'], y=date.year, isodate=date.isoformat(), issue=issue_no)
+
+    return formatted
+
+
+docs = pandas.read_csv('docs.csv', sep='\t', parse_dates=[1])
+issues = pandas.read_csv('issue_numbers.csv', sep=',')
+
+for doc in docs.iterrows():
+    path = data_root + format_path(doc[1], issues)
+    xmls = read_xml_directory(path)
+    print(path)
+    print(xmls)
+    print(doc[1])
+    print(etree.tostring(find_by_block_id(xmls, doc[1]['TextblockID'])))
+
 
 print(etree.tostring(find_by_block_id(xmls, 'P2_TB00001')))
 
