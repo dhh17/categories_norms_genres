@@ -108,11 +108,11 @@ with open('poems.txt', 'w', newline='') as fp:
     for poem in poems:
         for line in poem:
             fp.write("%s\n" % line)
-        fp.write("\n\n----------\n\n")
+        fp.write("----------\n\n")
 
 with open('nonpoems.txt', 'w', newline='') as fp:
     for text in others:
         for line in text:
             fp.write("%s\n" % line)
-        fp.write("\n\n----------\n\n")
+        fp.write("----------\n\n")
 
