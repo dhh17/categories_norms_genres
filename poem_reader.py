@@ -64,8 +64,8 @@ def format_path(doc, issues):
     return formatted
 
 
-docs = pandas.read_csv('docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
-issues = pandas.read_csv('issue_numbers.csv', sep=',')
+docs = pandas.read_csv('data/docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
+issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
 
 for doc in docs.iterrows():
     path = data_root + format_path(doc[1], issues)
