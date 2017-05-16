@@ -87,32 +87,25 @@ doc_ids = defaultdict(list)
 for doc in docs.iterrows():
     doc_ids[doc[1]['URL']].append(doc[1]['TextblockID'])
 
-poems = []
-others = []
-
 print('Reading XML files...')
+path = None
 
 for doc in docs.iterrows():
+    previous_path = path
     path = data_root + format_path(doc[1], issues)
+    if path == previous_path:
+        continue
     xmls = read_xml_directory(path)
     if not xmls:
         continue
 
     poem, nonpoem = get_block_texts(xmls, doc_ids[doc[1]['URL']])
-    poems += [poem]
-    others += [nonpoem]
 
-print('Writing text files')
-
-with open('poems.txt', 'w', newline='') as fp:
-    for poem in poems:
+    date = doc[1]['Date'].to_pydatetime().date()
+    with open('poems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
         for line in poem:
             fp.write("%s\n" % line)
-        fp.write("----------\n\n")
 
-with open('nonpoems.txt', 'w', newline='') as fp:
-    for text in others:
-        for line in text:
+    with open('nonpoems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
+        for line in nonpoem:
             fp.write("%s\n" % line)
-        fp.write("----------\n\n")
-
