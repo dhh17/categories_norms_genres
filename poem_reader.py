@@ -9,7 +9,7 @@ import glob
 import datetime
 import pandas
 from iso8601 import iso8601
-from lxml import etree
+from lxml import etree, objectify
 
 argparser = argparse.ArgumentParser(description="Newspaper XML parser", fromfile_prefix_chars='@')
 argparser.add_argument("dataroot", help="Path to DHH 17 newspapers directory")
@@ -27,7 +27,8 @@ def read_xml_directory(path):
     xmls = []
     for xmlfile in files:
         with open(xmlfile, 'r') as f:
-            xmls.append(etree.parse(f))
+            parsed = etree.parse(f)
+            xmls.append(parsed)
 
     return xmls
 
@@ -36,13 +37,22 @@ def find_by_block_id(xmls, block_id):
     """
     Find an element by block_id from a list of lxml trees
     """
-    block_xpath = etree.XPath("//*[@ID='{id}']".format(id=block_id))
+    ns = {'kk': 'kk-ocr'}
+    block_xpath = etree.XPath("//kk:TextBlock[@ID='{id}']".format(id=block_id), namespaces=ns)
+    text = ''
     for xml in xmls:
-        elements = block_xpath(xml)
-        if elements:
-            return elements[0]
+        blocks = block_xpath(xml)
+        if blocks:
+            lines = list(blocks[0])
+            for line in lines:
+                for string in line:
+                    if 'String' in str(string.tag):
+                        text += string.get('CONTENT')
+                    elif 'SP' in str(string.tag):
+                        text += ' '
+                text += '\n'
 
-    return False
+            return text
 
 
 def format_path(doc, issues):
@@ -54,18 +64,13 @@ def format_path(doc, issues):
     return formatted
 
 
-docs = pandas.read_csv('docs.csv', sep='\t', parse_dates=[1])
+docs = pandas.read_csv('docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
 issues = pandas.read_csv('issue_numbers.csv', sep=',')
 
 for doc in docs.iterrows():
     path = data_root + format_path(doc[1], issues)
     xmls = read_xml_directory(path)
-    print(path)
-    print(xmls)
-    print(doc[1])
-    print(etree.tostring(find_by_block_id(xmls, doc[1]['TextblockID'])))
-
-
-print(etree.tostring(find_by_block_id(xmls, 'P2_TB00001')))
+    text_block = find_by_block_id(xmls, doc[1]['TextblockID'])
+    print(text_block)
 
 
