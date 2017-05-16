@@ -109,3 +109,12 @@ for doc in docs.iterrows():
     with open('nonpoems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
         for line in nonpoem:
             fp.write("%s\n" % line)
+
+    date = doc[1]['Date'].to_pydatetime().date()
+    for (i, block) in enumerate(poem):
+        with open('poemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
+            fp.write(block)
+
+    for i, block in enumerate(nonpoem):
+        with open('nonpoemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
+            fp.write(block)
