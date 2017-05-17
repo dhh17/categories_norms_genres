@@ -11,12 +11,6 @@ from collections import defaultdict
 import pandas
 from lxml import etree
 
-argparser = argparse.ArgumentParser(description="Newspaper XML parser", fromfile_prefix_chars='@')
-argparser.add_argument("dataroot", help="Path to DHH 17 newspapers directory")
-args = argparser.parse_args()
-
-data_root = args.dataroot
-
 
 def read_xml_directory(path):
     """
@@ -36,23 +30,28 @@ def read_xml_directory(path):
     return xmls
 
 
+def parse_text_lines(lines):
+    """
+    Parse text lines of a text block
+    """
+    text = ''
+    for line in lines:
+        for string in line:
+            if 'String' in str(string.tag):
+                text += string.get('CONTENT')
+                #print(text)
+            elif 'SP' in str(string.tag):
+                text += ' '
+        text += '\n'
+
+    return text
+
+
 def get_block_texts(xmls, poem_block_ids):
     """
     Find an element by block_id from a list of lxml trees
     """
 
-    def parse_text_lines(lines):
-        text = ''
-        for line in lines:
-            for string in line:
-                if 'String' in str(string.tag):
-                    text += string.get('CONTENT')
-                    #print(text)
-                elif 'SP' in str(string.tag):
-                    text += ' '
-            text += '\n'
-
-        return text
 
     ns = {'kk': 'kk-ocr'}
     block_xpath = etree.XPath("//kk:TextBlock", namespaces=ns)
@@ -79,42 +78,48 @@ def format_path(doc, issues):
 
     return formatted
 
+if __name__ == "__main__":
+    argparser = argparse.ArgumentParser(description="Newspaper XML parser", fromfile_prefix_chars='@')
+    argparser.add_argument("dataroot", help="Path to DHH 17 newspapers directory")
+    args = argparser.parse_args()
 
-docs = pandas.read_csv('data/docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
-issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
+    data_root = args.dataroot
+    
+    docs = pandas.read_csv('data/docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
+    issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
 
-doc_ids = defaultdict(list)
-for doc in docs.iterrows():
-    doc_ids[doc[1]['URL']].append(doc[1]['TextblockID'])
+    doc_ids = defaultdict(list)
+    for doc in docs.iterrows():
+        doc_ids[doc[1]['URL']].append(doc[1]['TextblockID'])
 
-print('Reading XML files...')
-path = None
+    print('Reading XML files...')
+    path = None
 
-for doc in docs.iterrows():
-    previous_path = path
-    path = data_root + format_path(doc[1], issues)
-    if path == previous_path:
-        continue
-    xmls = read_xml_directory(path)
-    if not xmls:
-        continue
+    for doc in docs.iterrows():
+        previous_path = path
+        path = data_root + format_path(doc[1], issues)
+        if path == previous_path:
+            continue
+        xmls = read_xml_directory(path)
+        if not xmls:
+            continue
 
-    poem, nonpoem = get_block_texts(xmls, doc_ids[doc[1]['URL']])
+        poem, nonpoem = get_block_texts(xmls, doc_ids[doc[1]['URL']])
 
-    date = doc[1]['Date'].to_pydatetime().date()
-    with open('poems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
-        for line in poem:
-            fp.write("%s\n" % line)
+        date = doc[1]['Date'].to_pydatetime().date()
+        with open('poems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
+            for line in poem:
+                fp.write("%s\n" % line)
 
-    with open('nonpoems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
-        for line in nonpoem:
-            fp.write("%s\n" % line)
+        with open('nonpoems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
+            for line in nonpoem:
+                fp.write("%s\n" % line)
 
-    date = doc[1]['Date'].to_pydatetime().date()
-    for (i, block) in enumerate(poem):
-        with open('poemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
-            fp.write(block)
+        date = doc[1]['Date'].to_pydatetime().date()
+        for (i, block) in enumerate(poem):
+            with open('poemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
+                fp.write(block)
 
-    for i, block in enumerate(nonpoem):
-        with open('nonpoemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
-            fp.write(block)
+        for i, block in enumerate(nonpoem):
+            with open('nonpoemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
+                fp.write(block)
