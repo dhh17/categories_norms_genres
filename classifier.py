@@ -6,6 +6,10 @@ Poem classifier
 import argparse
 import glob
 import pprint
+import re
+import csv
+
+import pandas
 from lxml import etree
 
 import numpy as np
@@ -20,6 +24,7 @@ from poem_reader import read_xml_directory, parse_text_lines, block_xpath
 argparser = argparse.ArgumentParser(description="Textblock classifier to poems and other text")
 argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
 argparser.add_argument("--dir", help="Directory to classify")
+argparser.add_argument("--newfile", help="Create new CSV file", dest='newfile', action='store_true')
 args = argparser.parse_args()
 
 
@@ -84,7 +89,7 @@ def train():
 
     print('Cross-validation accuracy %s' % acc)
 
-    parameters = {'vect__ngram_range': [(1, 1), (1, 2)],
+    parameters = {'vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
                   'tfidf__use_idf': (True, False),
                   'clf__alpha': (1e-2, 1e-3, 1e-4),
                   'clf__penalty': ('l1', 'l2', 'elasticnet'),
@@ -108,6 +113,17 @@ def train():
     gs_clf.fit(all_train_data, all_train_target)
 
     return gs_clf
+
+
+def parse_metadata_from_path(path):
+    '/home/razzo/dhh17data/newspapers/newspapers/fin/1820/1457-4888/1457-4888_1820-01-08_1/alto/1457-4888_1820-01-08_1_003.xml'
+
+    re_name_split = r'.*/newspapers/newspapers/fin/(.{4})/(.{7,9})/.{7,9}\_.{4}\-(..)\-(..)'
+
+    split = re.search(re_name_split, path)
+
+    year, issn, month, day = split.groups()
+    return year, month, day, issn
 
 
 if args.job == 'train':
@@ -145,16 +161,41 @@ elif args.job == 'predict':
 
         for block in text_blocks:
             data.append(parse_text_lines(list(block)))
-            metadata.append((filename, block.get('ID')))
+            metadata.append(parse_metadata_from_path(filename) + (block.get('ID'),))
 
+    data_orig = data
     data = [d.replace('\n', ' ') for d in data]
 
-    print(len(data))
+    # print(len(data))
 
     predicted = clf.predict(data)
     #print(predicted)
 
-    if 1 in predicted:
-        #print(predicted)
-        pprint.pprint([metadata[i] for i, d in enumerate(data) if predicted[i]])
+    with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
+        writer = csv.writer(fp, delimiter='\t', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        if args.newfile:
+            writer.writerow(('Poem', 'Year', 'Month', 'Day', 'Newspaper name', 'ISSN'))
+        poemtext = ''
+        prev_vector = None
+        for i, d in enumerate(data_orig):
+            if not predicted[i]:
+                continue
+            # print(metadata[i])
+
+            year, month, day, issn, blockid = metadata[i]
+
+            if prev_vector == (year, month, day, issn):
+                poemtext += d
+            else:
+                poemtext = d
+
+            prev_vector = (year, month, day, issn)
+
+            issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
+            paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
+
+            writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
+
+            with open('foundpoems/{paper}_{year}_{month}_{day}.txt'.format(year=year, month=month, day=day, paper=paper), 'w', newline='') as textp:
+                textp.write(poemtext)
 
