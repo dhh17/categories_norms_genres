@@ -5,6 +5,8 @@ Poem classifier
 """
 import argparse
 import glob
+import pprint
+from lxml import etree
 
 import numpy as np
 from sklearn.externals import joblib
@@ -40,6 +42,9 @@ def read_training_data(path='./'):
 
 def train():
     poems, nonpoems = read_training_data()
+
+    nonpoems = nonpoems[::10]  # TODO: Use skipped as test data
+
     print(len(poems))
     print(len(nonpoems))
 
@@ -73,29 +78,36 @@ def train():
                                                alpha=1e-3, n_iter=5, random_state=42)),
                          ])
 
-    _ = text_clf.fit(train_data, train_target)
+    text_clf.fit(train_data, train_target)
     predicted = text_clf.predict(test_data)
     acc = np.mean(predicted == test_target)
 
     print('Cross-validation accuracy %s' % acc)
 
-    # parameters = {'vect__ngram_range': [(1, 1), (1, 2)],
-    #               'tfidf__use_idf': (True, False),
-    #               'clf__alpha': (1e-2, 1e-3)}
-    #
-    # gs_clf = GridSearchCV(text_clf, parameters, n_jobs=-1)
-    #
-    # gs_clf = gs_clf.fit(train_data, train_target)
-    #
-    # # _ = text_clf.fit(train_data, train_target)
-    # predicted = gs_clf.predict(test_data)
-    # acc = np.mean(predicted == test_target)
-    #
-    # print('Cross-validation accuracy %s' % acc)
+    parameters = {'vect__ngram_range': [(1, 1), (1, 2)],
+                  'tfidf__use_idf': (True, False),
+                  'clf__alpha': (1e-2, 1e-3, 1e-4),
+                  'clf__penalty': ('l1', 'l2', 'elasticnet'),
+                  'clf__loss': ('hinge', 'log'),
+                  'clf__n_iter': (4,)}
 
-    _ = text_clf.fit(all_train_data, all_train_target)
+    gs_clf = GridSearchCV(text_clf, parameters, n_jobs=-1)
 
-    return text_clf
+    gs_clf = gs_clf.fit(train_data, train_target)
+
+    # _ = text_clf.fit(train_data, train_target)
+    predicted = gs_clf.predict(test_data)
+    acc = np.mean(predicted == test_target)
+
+    print(predicted)
+    print(gs_clf.best_params_)
+
+    print('Parameter-tuned cross-validation accuracy %s' % acc)
+
+    # text_clf.fit(all_train_data, all_train_target)
+    gs_clf.fit(all_train_data, all_train_target)
+
+    return gs_clf
 
 
 if args.job == 'train':
@@ -103,19 +115,46 @@ if args.job == 'train':
 
 elif args.job == 'predict':
     clf = joblib.load('svm.pkl')
-    xmls = read_xml_directory(args.dir)
+
+    if args.dir[-1] != '/':
+        args.dir = args.dir + '/'
+
+    files = glob.glob(args.dir + "**/*.xml", recursive=True)
+
+    if not files:
+        print('No files found for %s' % args.dir)
+        quit()
+
+    xmls = []
+    for xmlfile in files:
+        if 'alto' not in xmlfile:
+            continue
+
+        with open(xmlfile, 'r') as f:
+            try:
+                parsed = etree.parse(f)
+                xmls.append((parsed, xmlfile))
+                print('Read file %s' % xmlfile)
+            except etree.XMLSyntaxError:
+                print('Error in XML: %s' % xmlfile)
 
     data = []
-    for xml in xmls:
+    metadata = []
+    for xml, filename in xmls:
         text_blocks = block_xpath(xml)
 
         for block in text_blocks:
             data.append(parse_text_lines(list(block)))
+            metadata.append((filename, block.get('ID')))
 
     data = [d.replace('\n', ' ') for d in data]
 
-    print(data[:3])
     print(len(data))
 
     predicted = clf.predict(data)
-    print(predicted)
+    #print(predicted)
+
+    if 1 in predicted:
+        #print(predicted)
+        pprint.pprint([metadata[i] for i, d in enumerate(data) if predicted[i]])
+
