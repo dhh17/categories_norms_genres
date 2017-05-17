@@ -8,6 +8,9 @@ import glob
 
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
 
 argparser = argparse.ArgumentParser(description="Textblock classifier to poems and other text")
 argparser.add_argument("job", help="Job to do", choices=['train', 'classify'])
@@ -35,16 +38,55 @@ if args.job == 'train':
     print(len(poems))
     print(len(nonpoems))
 
-    count_vect = CountVectorizer()
-    X_train_counts = count_vect.fit_transform(poems + nonpoems)
+    # count_vect = CountVectorizer()
+    # X_train_counts = count_vect.fit_transform(poems + nonpoems)
+    #
+    # #print(X_train_counts)
+    #
+    # #cc = count_vect.vocabulary_.get('on')
+    # #print(count_vect.get_feature_names()[cc])
+    # #print(np.sum(X_train_counts, axis=0).tolist()[0][cc])
+    #
+    # tfidf_transformer = TfidfTransformer()
+    # X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+    # print(X_train_tfidf.shape)
 
-    #print(X_train_counts)
+    all_train_data = poems + nonpoems
+    all_train_target = [1] * len(poems) + [0] * len(nonpoems)
 
-    #cc = count_vect.vocabulary_.get('on')
-    #print(count_vect.get_feature_names()[cc])
-    #print(np.sum(X_train_counts, axis=0).tolist()[0][cc])
+    test_data = all_train_data[::2]
+    test_target = all_train_target[::2]
 
-    tfidf_transformer = TfidfTransformer()
-    X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
-    print(X_train_tfidf.shape)
+    train_data = all_train_data[1::2]
+    train_target = all_train_target[1::2]
+
+    text_clf = Pipeline([('vect', CountVectorizer()),
+                         ('tfidf', TfidfTransformer()),
+                         ('clf', SGDClassifier(loss='hinge', penalty='l2',
+                                               alpha=1e-3, n_iter=5, random_state=42)),
+                         ])
+
+    _ = text_clf.fit(train_data, train_target)
+    predicted = text_clf.predict(test_data)
+    acc = np.mean(predicted == test_target)
+
+    print('Cross-validation accuracy %s' % acc)
+
+    # parameters = {'vect__ngram_range': [(1, 1), (1, 2)],
+    #               'tfidf__use_idf': (True, False),
+    #               'clf__alpha': (1e-2, 1e-3)}
+    #
+    # gs_clf = GridSearchCV(text_clf, parameters, n_jobs=-1)
+    #
+    # gs_clf = gs_clf.fit(train_data, train_target)
+    #
+    # # _ = text_clf.fit(train_data, train_target)
+    # predicted = gs_clf.predict(test_data)
+    # acc = np.mean(predicted == test_target)
+    #
+    # print('Cross-validation accuracy %s' % acc)
+
+    _ = text_clf.fit(all_train_data, all_train_target)
+
+    
 
