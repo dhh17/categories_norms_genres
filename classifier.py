@@ -5,6 +5,7 @@ Poem classifier
 """
 import argparse
 import glob
+import logging
 import pprint
 import re
 import csv
@@ -26,6 +27,13 @@ argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
 argparser.add_argument("--dir", help="Directory to classify")
 argparser.add_argument("--newfile", help="Create new CSV file", dest='newfile', action='store_true')
 args = argparser.parse_args()
+
+logging.basicConfig(filename='classifier.log',
+                    filemode='a',
+                    level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+log = logging.getLogger(__name__)
 
 
 def read_training_data(path='./'):
@@ -71,7 +79,7 @@ def train():
 
     all_train_data = [d.replace('\n', ' ') for d in all_train_data]
 
-    test_data = all_train_data[::2]
+    test_data = all_train_data[::2]  # TODO: Use less test data
     test_target = all_train_target[::2]
 
     train_data = all_train_data[1::2]
@@ -91,10 +99,10 @@ def train():
 
     parameters = {'vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
                   'tfidf__use_idf': (True, False),
-                  'clf__alpha': (1e-2, 1e-3, 1e-4),
+                  'clf__alpha': (1e-2, 1e-3, 1e-4, 1e-5, 1e-6),
                   'clf__penalty': ('l1', 'l2', 'elasticnet'),
                   'clf__loss': ('hinge', 'log'),
-                  'clf__n_iter': (4,)}
+                  'clf__n_iter': (3, 4, 5, 6, 7)}
 
     gs_clf = GridSearchCV(text_clf, parameters, n_jobs=-1)
 
@@ -112,11 +120,16 @@ def train():
     # text_clf.fit(all_train_data, all_train_target)
     gs_clf.fit(all_train_data, all_train_target)
 
+    print('Final params: %s' % gs_clf.best_params_)
+    print('Best score: %s' % gs_clf.best_score_)
+
     return gs_clf
 
 
 def parse_metadata_from_path(path):
-    '/home/razzo/dhh17data/newspapers/newspapers/fin/1820/1457-4888/1457-4888_1820-01-08_1/alto/1457-4888_1820-01-08_1_003.xml'
+    """
+    ~/dhh17data/newspapers/newspapers/fin/1820/1457-4888/1457-4888_1820-01-08_1/alto/1457-4888_1820-01-08_1_003.xml
+    """
 
     re_name_split = r'.*/newspapers/newspapers/fin/(.{4})/(.{7,9})/.{7,9}\_.{4}\-(..)\-(..)'
 
@@ -138,7 +151,7 @@ elif args.job == 'predict':
     files = glob.glob(args.dir + "**/*.xml", recursive=True)
 
     if not files:
-        print('No files found for %s' % args.dir)
+        log.warning('No files found for %s' % args.dir)
         quit()
 
     xmls = []
@@ -150,9 +163,9 @@ elif args.job == 'predict':
             try:
                 parsed = etree.parse(f)
                 xmls.append((parsed, xmlfile))
-                print('Read file %s' % xmlfile)
+                log.debug('Read file %s' % xmlfile)
             except etree.XMLSyntaxError:
-                print('Error in XML: %s' % xmlfile)
+                log.error('Error in XML: %s' % xmlfile)
 
     data = []
     metadata = []
@@ -181,8 +194,8 @@ elif args.job == 'predict':
     # print(data_orig[100])
     # quit()
 
-    data_orig = [d for i ,d in enumerate(data_orig) if predicted[i]]
-    metadata = [d for i ,d in enumerate(metadata) if predicted[i]]
+    data_trunc = [d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94]
+    metadata = [d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94]
 
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
     with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
@@ -194,7 +207,7 @@ elif args.job == 'predict':
         poemtext = ''
         prev_vector = None
         blockids = []
-        for i, d in enumerate(data_orig):
+        for i, d in enumerate(data_trunc):
 
             # print(metadata[i])
 
@@ -204,7 +217,10 @@ elif args.job == 'predict':
             #     prev_vector = (year, month, day, issn)
             #     continue
             #
-            paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
+            try:
+                paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
+            except IndexError:
+                log.error('ISSN Number not found: %s' % issn)
 
             if prev_vector == (year, month, day, issn):
                 if poemtext:
@@ -218,7 +234,7 @@ elif args.job == 'predict':
                     writer.writerow([poemtext.replace('\n', ' '), year2, month2, day2, paper2, issn2])
                     poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
                                     format(year=year2, month=month2, day=day2, paper=paper2, blocks=' '.join(blockids))
-                    poem_filename = (poem_filename[:140] + ' TRUNCATED') if len(poem_filename) > 147 else poem_filename
+                    poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
                     poem_filename += '.txt'
                     with open(poem_filename, 'w', newline='') as textp:
                         textp.write(poemtext)
@@ -227,6 +243,5 @@ elif args.job == 'predict':
                 blockids = [blockid]
 
             prev_vector = (year, month, day, issn)
-
 
         writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
