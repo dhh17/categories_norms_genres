@@ -171,6 +171,7 @@ elif args.job == 'predict':
     predicted = clf.predict(data)
     #print(predicted)
 
+    issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
     with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
         writer = csv.writer(fp, delimiter='\t', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         if args.newfile:
@@ -184,18 +185,17 @@ elif args.job == 'predict':
 
             year, month, day, issn, blockid = metadata[i]
 
+            paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
+
             if prev_vector == (year, month, day, issn):
                 poemtext += d
             else:
+                writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
                 poemtext = d
 
             prev_vector = (year, month, day, issn)
 
-            issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
-            paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
-
-            writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
-
-            with open('foundpoems/{paper}_{year}_{month}_{day}.txt'.format(year=year, month=month, day=day, paper=paper), 'w', newline='') as textp:
+            with open('foundpoems/{year}_{month}_{day}_{paper}.txt'.format(year=year, month=month, day=day, paper=paper), 'w', newline='') as textp:
                 textp.write(poemtext)
 
+        writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
