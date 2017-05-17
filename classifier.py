@@ -159,9 +159,15 @@ elif args.job == 'predict':
     for xml, filename in xmls:
         text_blocks = block_xpath(xml)
 
+        paper_metadata = parse_metadata_from_path(filename)
+
+        # print(paper_metadata)
+        # pprint.pprint(list(parse_text_lines(list(block)) for block in text_blocks))
+        # quit()
+
         for block in text_blocks:
             data.append(parse_text_lines(list(block)))
-            metadata.append(parse_metadata_from_path(filename) + (block.get('ID'),))
+            metadata.append(paper_metadata + (block.get('ID'),))
 
     data_orig = data
     data = [d.replace('\n', ' ') for d in data]
@@ -171,31 +177,56 @@ elif args.job == 'predict':
     predicted = clf.predict(data)
     #print(predicted)
 
+    # print(metadata[100])
+    # print(data_orig[100])
+    # quit()
+
+    data_orig = [d for i ,d in enumerate(data_orig) if predicted[i]]
+    metadata = [d for i ,d in enumerate(metadata) if predicted[i]]
+
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
     with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
-        writer = csv.writer(fp, delimiter='\t', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer = csv.writer(fp, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
         if args.newfile:
             writer.writerow(('Poem', 'Year', 'Month', 'Day', 'Newspaper name', 'ISSN'))
+
         poemtext = ''
         prev_vector = None
+        blockids = []
         for i, d in enumerate(data_orig):
-            if not predicted[i]:
-                continue
+
             # print(metadata[i])
 
             year, month, day, issn, blockid = metadata[i]
 
+            # if not predicted[i]:
+            #     prev_vector = (year, month, day, issn)
+            #     continue
+            #
             paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
 
             if prev_vector == (year, month, day, issn):
+                if poemtext:
+                    poemtext += "\n"
                 poemtext += d
+                blockids.append(blockid)
             else:
-                writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
+                if poemtext:
+                    year2, month2, day2, issn2 = prev_vector
+                    paper2 = issues.loc[issues['issn'] == issn2]['paper'].iloc[0]
+                    writer.writerow([poemtext.replace('\n', ' '), year2, month2, day2, paper2, issn2])
+                    poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
+                                    format(year=year2, month=month2, day=day2, paper=paper2, blocks=' '.join(blockids))
+                    poem_filename = (poem_filename[:140] + ' TRUNCATED') if len(poem_filename) > 147 else poem_filename
+                    poem_filename += '.txt'
+                    with open(poem_filename, 'w', newline='') as textp:
+                        textp.write(poemtext)
+
                 poemtext = d
+                blockids = [blockid]
 
             prev_vector = (year, month, day, issn)
 
-            with open('foundpoems/{year}_{month}_{day}_{paper}.txt'.format(year=year, month=month, day=day, paper=paper), 'w', newline='') as textp:
-                textp.write(poemtext)
 
         writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
