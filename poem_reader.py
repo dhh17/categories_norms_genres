@@ -11,6 +11,8 @@ from collections import defaultdict
 import pandas
 from lxml import etree
 
+ns = {'kk': 'kk-ocr'}
+block_xpath = etree.XPath("//kk:TextBlock", namespaces=ns)
 
 def read_xml_directory(path):
     """
@@ -53,8 +55,6 @@ def get_block_texts(xmls, poem_block_ids):
     """
 
 
-    ns = {'kk': 'kk-ocr'}
-    block_xpath = etree.XPath("//kk:TextBlock", namespaces=ns)
     poems = []
     nonpoems = []
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     data_root = args.dataroot
-    
+
     docs = pandas.read_csv('data/docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
 

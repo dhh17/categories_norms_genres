@@ -7,13 +7,17 @@ import argparse
 import glob
 
 import numpy as np
+from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
+from poem_reader import read_xml_directory, parse_text_lines, block_xpath
+
 argparser = argparse.ArgumentParser(description="Textblock classifier to poems and other text")
-argparser.add_argument("job", help="Job to do", choices=['train', 'classify'])
+argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
+argparser.add_argument("--dir", help="Directory to classify")
 args = argparser.parse_args()
 
 
@@ -33,7 +37,8 @@ def read_training_data(path='./'):
 
     return poems, nonpoems
 
-if args.job == 'train':
+
+def train():
     poems, nonpoems = read_training_data()
     print(len(poems))
     print(len(nonpoems))
@@ -53,6 +58,8 @@ if args.job == 'train':
 
     all_train_data = poems + nonpoems
     all_train_target = [1] * len(poems) + [0] * len(nonpoems)
+
+    all_train_data = [d.replace('\n', ' ') for d in all_train_data]
 
     test_data = all_train_data[::2]
     test_target = all_train_target[::2]
@@ -88,5 +95,27 @@ if args.job == 'train':
 
     _ = text_clf.fit(all_train_data, all_train_target)
 
-    
+    return text_clf
 
+
+if args.job == 'train':
+    joblib.dump(train(), 'svm.pkl')
+
+elif args.job == 'predict':
+    clf = joblib.load('svm.pkl')
+    xmls = read_xml_directory(args.dir)
+
+    data = []
+    for xml in xmls:
+        text_blocks = block_xpath(xml)
+
+        for block in text_blocks:
+            data.append(parse_text_lines(list(block)))
+
+    data = [d.replace('\n', ' ') for d in data]
+
+    print(data[:3])
+    print(len(data))
+
+    predicted = clf.predict(data)
+    print(predicted)
