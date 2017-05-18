@@ -9,6 +9,7 @@ import logging
 import pprint
 import re
 import csv
+import gc
 
 import pandas
 from lxml import etree
@@ -163,6 +164,8 @@ elif args.job == 'predict':
     if not files:
         log.warning('No files found for %s' % args.dir)
         quit()
+    else:
+        log.info('Found %s XML files' % len(files))
 
     xmls = []
     for xmlfile in files:
@@ -192,10 +195,14 @@ elif args.job == 'predict':
             data.append(parse_text_lines(list(block)))
             metadata.append(paper_metadata + (block.get('ID'),))
 
+    log.info('All XML files have been read')
+
     data_orig = data
     data = [d.replace('\n', ' ') for d in data]
 
     # print(len(data))
+
+    log.info('Doing predictions.')
 
     predicted = clf.predict(data)
     #print(predicted)
@@ -204,8 +211,16 @@ elif args.job == 'predict':
     # print(data_orig[100])
     # quit()
 
-    data_trunc = [d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94]
-    metadata = [d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94]
+    data_trunc = tuple(d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94)
+    metadata = tuple(d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94)
+
+    del(xmls)
+    del(data_orig)
+    del(data)
+    del(predicted)
+    gc.collect()
+
+    log.info('Predictions done, writing results to files.')
 
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
     with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
