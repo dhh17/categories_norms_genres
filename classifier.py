@@ -150,7 +150,10 @@ if args.job == 'train':
     joblib.dump(train(), 'svm.pkl')
 
 elif args.job == 'predict':
+    log.info('Loading classifier from pickle file')
     clf = joblib.load('svm.pkl')
+
+    log.info('Classifier loaded')
 
     if args.dir[-1] != '/':
         args.dir = args.dir + '/'
