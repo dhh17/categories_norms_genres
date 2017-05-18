@@ -1,3 +1,5 @@
 iso8601
 lxml
 pandas
+sklearn
+scipy
