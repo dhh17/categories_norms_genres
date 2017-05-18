@@ -25,6 +25,7 @@ for(i in min(data$Year):max(data$Year)) {
   if(is.na(issues))
     next
   
+  png(paste(i, ".png", sep = ""))
   map('worldHires', c('Finland'))
   title(main = paste("Year", i, sep = ' '))
   
@@ -37,8 +38,6 @@ for(i in min(data$Year):max(data$Year)) {
     points(publication_place$long, publication_place$lat, col = "red", cex = 1 + ratio, pch = 19)
     text(publication_place$long, publication_place$lat, labels = issues$count[j], cex= 0.2 + ratio, pos = 4)
   }
-  
-  png(paste(i, ".png", sep = ""))
 }
 
 dev.off()
