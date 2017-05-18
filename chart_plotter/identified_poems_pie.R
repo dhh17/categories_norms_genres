@@ -48,8 +48,8 @@ draw_overall_pie_chart = function(data) {
   if(is.na(values) == FALSE) {
     colors = colours()[1:nrow(values)]
     percentages = paste(round(values$count / sum(values$count) * 100, digits = 2), "% ", "(", values$count, ")", sep="")
-    pie(values$count, labels = percentages, main = "Identified poems (whole corpus)", init.angle = 90, col = colors) 
-    legend("topleft", legend = rev(values$newspaper), cex = 0.75, fill = rev(colors), bty = "n")
+    pie(values$count, labels = percentages, main = "Identified poems (whole corpus)", cex.main = 2, radius = 0.7, init.angle = 90, col = colors, cex = 0.75) 
+    legend("topleft", legend = rev(values$newspaper), cex = 0.6, fill = rev(colors), bty = "n")
   }
 }
 
