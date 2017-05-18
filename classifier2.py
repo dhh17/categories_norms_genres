@@ -10,6 +10,7 @@ import pprint
 import re
 import csv
 import gc
+from collections import defaultdict
 
 import pandas
 from lxml import etree
@@ -62,43 +63,52 @@ if __name__ == "__main__":
 
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
 
-    xmls = []
+    filegroup = defaultdict(list)
+    filenamesplitter = r'(.*)/*metadata\.xml'
     for filename in files:
         if 'alto' not in filename:
             continue
+        split = re.search(filenamesplitter, filename)
+        if split:
+            file_prefix = split.groups()
+            filegroup[file_prefix].append(filename)
 
-        parsed = None
-        with open(filename, 'r') as f:
-            try:
-                parsed = etree.parse(f)
-                log.debug('Read file %s' % filename)
-            except etree.XMLSyntaxError:
-                log.error('Error in XML: %s' % filename)
-
-        if not parsed:
-            continue
-
+    xmls = []
+    for issue, issue_files in filegroup.items():
         data = []
         metadata = []
-        text_blocks = block_xpath(parsed)
-
         paper_metadata = parse_metadata_from_path(filename)
 
-        for block in text_blocks:
-            data.append(parse_text_lines(list(block)))
-            metadata.append(paper_metadata + (block.get('ID'),))
+        for filename in issue_files:
+
+            parsed = None
+            with open(filename, 'r') as f:
+                try:
+                    parsed = etree.parse(f)
+                    log.debug('Read file %s' % filename)
+                except etree.XMLSyntaxError:
+                    log.error('Error in XML: %s' % filename)
+
+            if not parsed:
+                continue
+
+            text_blocks = block_xpath(parsed)
+
+            for block in text_blocks:
+                data.append(parse_text_lines(list(block)))
+                metadata.append(paper_metadata + (block.get('ID'),))
 
         data_orig = data
         data = [d.replace('\n', ' ') for d in data]
 
-        log.debug('Doing prediction')
+        # log.debug('Doing prediction')
 
         predicted = clf.predict(data)
 
         data_trunc = tuple(d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94)
         metadata = tuple(d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94)
 
-        log.debug('Prediction done, writing results to files.')
+        # log.debug('Prediction done, writing results to files.')
 
         if not data_trunc:
             continue
@@ -135,6 +145,7 @@ if __name__ == "__main__":
                         poem_filename += '.txt'
                         with open(poem_filename, 'w', newline='') as textp:
                             textp.write(poemtext)
+                            log.debug('Written poem to file %s' % poem_filename)
 
                     poemtext = d
                     blockids = [blockid]
@@ -144,3 +155,12 @@ if __name__ == "__main__":
             if year:
                 writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
                 log.debug('Updated CSV file')
+
+                poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
+                                format(year=year, month=month, day=day, paper=paper, blocks=' '.join(blockids))
+                poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
+                poem_filename += '.txt'
+
+                with open(poem_filename, 'w', newline='') as textp:
+                    textp.write(poemtext)
+                    log.debug('Written poem to file %s' % poem_filename)
