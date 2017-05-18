@@ -23,12 +23,6 @@ from sklearn.pipeline import Pipeline
 
 from poem_reader import read_xml_directory, parse_text_lines, block_xpath
 
-argparser = argparse.ArgumentParser(description="Textblock classifier to poems and other text")
-argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
-argparser.add_argument("--dir", help="Directory to classify")
-argparser.add_argument("--newfile", help="Create new CSV file", dest='newfile', action='store_true')
-args = argparser.parse_args()
-
 logging.basicConfig(filename='classifier.log',
                     filemode='a',
                     level=logging.DEBUG,
@@ -140,132 +134,118 @@ def parse_metadata_from_path(path):
     return year, month, day, issn
 
 
-def get_paper_name_by_issn(issn):
+def get_paper_name_by_issn(issue_df, issn):
     try:
-        paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
+        paper = issues.loc[issue_df['issn'] == issn]['paper'].iloc[0]
     except IndexError:
         log.error('ISSN Number not found: %s' % issn)
 
+    return paper
 
-if args.job == 'train':
-    joblib.dump(train(), 'svm.pkl')
 
-elif args.job == 'predict':
-    log.info('Loading classifier from pickle file')
-    clf = joblib.load('svm.pkl')
+if __name__ == "__main__":
+    argparser = argparse.ArgumentParser(description="Textblock classifier to poems and other text")
+    argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
+    argparser.add_argument("--dir", help="Directory to classify")
+    argparser.add_argument("--newfile", help="Create new CSV file", dest='newfile', action='store_true')
+    args = argparser.parse_args()
 
-    log.info('Classifier loaded')
+    if args.job == 'train':
+        joblib.dump(train(), 'svm.pkl')
 
-    if args.dir[-1] != '/':
-        args.dir = args.dir + '/'
+    elif args.job == 'predict':
+        log.info('Loading classifier from pickle file')
+        clf = joblib.load('svm.pkl')
 
-    files = glob.glob(args.dir + "**/*.xml", recursive=True)
+        log.info('Classifier loaded')
 
-    if not files:
-        log.warning('No files found for %s' % args.dir)
-        quit()
-    else:
-        log.info('Found %s XML files' % len(files))
+        if args.dir[-1] != '/':
+            args.dir = args.dir + '/'
 
-    xmls = []
-    for xmlfile in files:
-        if 'alto' not in xmlfile:
-            continue
+        files = glob.glob(args.dir + "**/*.xml", recursive=True)
 
-        with open(xmlfile, 'r') as f:
-            try:
-                parsed = etree.parse(f)
-                xmls.append((parsed, xmlfile))
-                log.debug('Read file %s' % xmlfile)
-            except etree.XMLSyntaxError:
-                log.error('Error in XML: %s' % xmlfile)
+        if not files:
+            log.warning('No files found for %s' % args.dir)
+            quit()
+        else:
+            log.info('Found %s XML files' % len(files))
 
-    data = []
-    metadata = []
-    for xml, filename in xmls:
-        text_blocks = block_xpath(xml)
+        xmls = []
+        for filename in files:
+            if 'alto' not in filename:
+                continue
 
-        paper_metadata = parse_metadata_from_path(filename)
+            with open(filename, 'r') as f:
+                try:
+                    parsed = etree.parse(f)
+                    xmls.append((parsed, filename))
+                    log.debug('Read file %s' % filename)
+                except etree.XMLSyntaxError:
+                    log.error('Error in XML: %s' % filename)
 
-        # print(paper_metadata)
-        # pprint.pprint(list(parse_text_lines(list(block)) for block in text_blocks))
-        # quit()
+        data = []
+        metadata = []
+        for xml, filename in xmls:
+            text_blocks = block_xpath(xml)
 
-        for block in text_blocks:
-            data.append(parse_text_lines(list(block)))
-            metadata.append(paper_metadata + (block.get('ID'),))
+            paper_metadata = parse_metadata_from_path(filename)
 
-    log.info('All XML files have been read')
+            for block in text_blocks:
+                data.append(parse_text_lines(list(block)))
+                metadata.append(paper_metadata + (block.get('ID'),))
 
-    data_orig = data
-    data = [d.replace('\n', ' ') for d in data]
+        log.info('All XML files have been read')
 
-    # print(len(data))
+        data_orig = data
+        data = [d.replace('\n', ' ') for d in data]
 
-    log.info('Doing predictions.')
+        log.info('Doing predictions.')
 
-    predicted = clf.predict(data)
-    #print(predicted)
+        predicted = clf.predict(data)
 
-    # print(metadata[100])
-    # print(data_orig[100])
-    # quit()
+        data_trunc = tuple(d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94)
+        metadata = tuple(d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94)
 
-    data_trunc = tuple(d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94)
-    metadata = tuple(d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94)
+        log.info('Predictions done, writing results to files.')
 
-    del(xmls)
-    del(data_orig)
-    del(data)
-    del(predicted)
-    gc.collect()
+        issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
+        with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
+            writer = csv.writer(fp, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-    log.info('Predictions done, writing results to files.')
+            if args.newfile:
+                writer.writerow(('Poem', 'Year', 'Month', 'Day', 'Newspaper name', 'ISSN'))
+                log.info('Created new CSV file')
 
-    issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
-    with open('foundpoems/found_poems.csv'.format(year=metadata[0][0]), 'w' if args.newfile else 'a', newline='') as fp:
-        writer = csv.writer(fp, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            poemtext = ''
+            prev_vector = None
+            blockids = []
+            for i, d in enumerate(data_trunc):
 
-        if args.newfile:
-            writer.writerow(('Poem', 'Year', 'Month', 'Day', 'Newspaper name', 'ISSN'))
-            log.info('Created new CSV file')
+                year, month, day, issn, blockid = metadata[i]
 
-        poemtext = ''
-        prev_vector = None
-        blockids = []
-        for i, d in enumerate(data_trunc):
+                paper = get_paper_name_by_issn(issues, issn)
 
-            # print(metadata[i])
+                if prev_vector == (year, month, day, issn):
+                    if poemtext:
+                        poemtext += "\n"
+                    poemtext += d
+                    blockids.append(blockid)
+                else:
+                    if poemtext:
+                        year2, month2, day2, issn2 = prev_vector
+                        paper2 = get_paper_name_by_issn(issues, issn2)
+                        writer.writerow([poemtext.replace('\n', ' '), year2, month2, day2, paper2, issn2])
+                        poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
+                                        format(year=year2, month=month2, day=day2, paper=paper2, blocks=' '.join(blockids))
+                        poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
+                        poem_filename += '.txt'
+                        with open(poem_filename, 'w', newline='') as textp:
+                            textp.write(poemtext)
 
-            year, month, day, issn, blockid = metadata[i]
+                    poemtext = d
+                    blockids = [blockid]
 
-            # if not predicted[i]:
-            #     prev_vector = (year, month, day, issn)
-            #     continue
-            #
-            paper = get_paper_name_by_issn(issn)
+                prev_vector = (year, month, day, issn)
 
-            if prev_vector == (year, month, day, issn):
-                if poemtext:
-                    poemtext += "\n"
-                poemtext += d
-                blockids.append(blockid)
-            else:
-                if poemtext:
-                    year2, month2, day2, issn2 = prev_vector
-                    paper2 = get_paper_name_by_issn(issn2)
-                    writer.writerow([poemtext.replace('\n', ' '), year2, month2, day2, paper2, issn2])
-                    poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
-                                    format(year=year2, month=month2, day=day2, paper=paper2, blocks=' '.join(blockids))
-                    poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
-                    poem_filename += '.txt'
-                    with open(poem_filename, 'w', newline='') as textp:
-                        textp.write(poemtext)
-
-                poemtext = d
-                blockids = [blockid]
-
-            prev_vector = (year, month, day, issn)
-
-        writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
-        log.info('Updated CSV file for year %s' % metadata[0][0])
+            writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
+            log.info('Updated CSV file for year %s' % metadata[0][0])
