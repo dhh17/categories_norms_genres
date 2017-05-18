@@ -45,7 +45,7 @@ if __name__ == "__main__":
     log.info('Classifier loaded')
 
     if args.directory[-1] != '/':
-        args.directory = args.directory + '/'
+        args.directory += '/'
 
     files = glob.glob(args.directory + "**/*.xml", recursive=True)
 
@@ -64,7 +64,8 @@ if __name__ == "__main__":
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
 
     filegroup = defaultdict(list)
-    filenamesplitter = r'(.*)/*metadata\.xml'
+    filenamesplitter = r'(.*)/[a-zA-Z0-9\-\_]+\.xml'
+
     for filename in files:
         if 'alto' not in filename:
             continue
@@ -73,12 +74,12 @@ if __name__ == "__main__":
             file_prefix = split.groups()
             filegroup[file_prefix].append(filename)
 
+    print(len(filegroup))
+
     xmls = []
     for issue, issue_files in filegroup.items():
         data = []
         metadata = []
-        paper_metadata = parse_metadata_from_path(filename)
-
         for filename in issue_files:
 
             parsed = None
@@ -93,6 +94,7 @@ if __name__ == "__main__":
                 continue
 
             text_blocks = block_xpath(parsed)
+            paper_metadata = parse_metadata_from_path(filename)
 
             for block in text_blocks:
                 data.append(parse_text_lines(list(block)))
