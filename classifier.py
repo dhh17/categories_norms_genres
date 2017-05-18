@@ -136,11 +136,11 @@ def parse_metadata_from_path(path):
 
 def get_paper_name_by_issn(issue_df, issn):
     try:
-        paper = issues.loc[issue_df['issn'] == issn]['paper'].iloc[0]
+        paper = issue_df.loc[issue_df['issn'] == issn]['paper'].iloc[0]
+        return paper
     except IndexError:
         log.error('ISSN Number not found: %s' % issn)
-
-    return paper
+        return False
 
 
 if __name__ == "__main__":
