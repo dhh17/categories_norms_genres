@@ -1,0 +1,1 @@
+sshfs cloud-user@vm0824.kaj.pouta.csc.fi:/dhh17 ~/dhh17data
