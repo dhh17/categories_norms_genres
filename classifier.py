@@ -56,7 +56,7 @@ def read_training_data(path='./'):
 def train():
     poems, nonpoems = read_training_data()
 
-    nonpoems = nonpoems[::10]  # TODO: Use skipped as test data
+    nonpoems = nonpoems[::5]  # TODO: Use skipped as test data
 
     print(len(poems))
     print(len(nonpoems))
@@ -139,6 +139,13 @@ def parse_metadata_from_path(path):
     return year, month, day, issn
 
 
+def get_paper_name_by_issn(issn):
+    try:
+        paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
+    except IndexError:
+        log.error('ISSN Number not found: %s' % issn)
+
+
 if args.job == 'train':
     joblib.dump(train(), 'svm.pkl')
 
@@ -203,6 +210,7 @@ elif args.job == 'predict':
 
         if args.newfile:
             writer.writerow(('Poem', 'Year', 'Month', 'Day', 'Newspaper name', 'ISSN'))
+            log.info('Created new CSV file')
 
         poemtext = ''
         prev_vector = None
@@ -217,10 +225,7 @@ elif args.job == 'predict':
             #     prev_vector = (year, month, day, issn)
             #     continue
             #
-            try:
-                paper = issues.loc[issues['issn'] == issn]['paper'].iloc[0]
-            except IndexError:
-                log.error('ISSN Number not found: %s' % issn)
+            paper = get_paper_name_by_issn(issn)
 
             if prev_vector == (year, month, day, issn):
                 if poemtext:
@@ -230,7 +235,7 @@ elif args.job == 'predict':
             else:
                 if poemtext:
                     year2, month2, day2, issn2 = prev_vector
-                    paper2 = issues.loc[issues['issn'] == issn2]['paper'].iloc[0]
+                    paper2 = get_paper_name_by_issn(issn2)
                     writer.writerow([poemtext.replace('\n', ' '), year2, month2, day2, paper2, issn2])
                     poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
                                     format(year=year2, month=month2, day=day2, paper=paper2, blocks=' '.join(blockids))
@@ -245,3 +250,4 @@ elif args.job == 'predict':
             prev_vector = (year, month, day, issn)
 
         writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
+        log.info('Updated CSV file for year %s' % metadata[0][0])
