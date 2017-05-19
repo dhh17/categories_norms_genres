@@ -32,6 +32,10 @@ log = logging.getLogger(__name__)
 
 
 def read_training_data(path='./'):
+    """
+    :param path:
+    :return: tuple with poem textblocks and other textblocks
+    """
     poem_files = glob.glob(path + "poemblocks/*.txt")
     nonpoem_files = glob.glob(path + "nonpoemblocks/*.txt")
 
@@ -48,37 +52,28 @@ def read_training_data(path='./'):
     return poems, nonpoems
 
 
-def train():
-    poems, nonpoems = read_training_data()
-
-    nonpoems = nonpoems[::5]  # TODO: Use skipped as test data
+def train(poems, nonpoems):
+    """
+    Train the model based on given training data
+    :return:
+    """
+    nonpoems = nonpoems[::5]  # TODO: Use skipped as test data?
 
     print(len(poems))
     print(len(nonpoems))
-
-    # count_vect = CountVectorizer()
-    # X_train_counts = count_vect.fit_transform(poems + nonpoems)
-    #
-    # #print(X_train_counts)
-    #
-    # #cc = count_vect.vocabulary_.get('on')
-    # #print(count_vect.get_feature_names()[cc])
-    # #print(np.sum(X_train_counts, axis=0).tolist()[0][cc])
-    #
-    # tfidf_transformer = TfidfTransformer()
-    # X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
-    # print(X_train_tfidf.shape)
 
     all_train_data = poems + nonpoems
     all_train_target = [1] * len(poems) + [0] * len(nonpoems)
 
     all_train_data = [d.replace('\n', ' ') for d in all_train_data]
 
-    test_data = all_train_data[::2]  # TODO: Use less test data
+    test_data = all_train_data[::2]  # TODO: Use less test data, and randomize it
     test_target = all_train_target[::2]
 
     train_data = all_train_data[1::2]
     train_target = all_train_target[1::2]
+
+    # TODO: Use FeatureUnion to add more features in addition to tfidf
 
     text_clf = Pipeline([('vect', CountVectorizer()),
                          ('tfidf', TfidfTransformer()),
@@ -103,7 +98,6 @@ def train():
 
     gs_clf = gs_clf.fit(train_data, train_target)
 
-    # _ = text_clf.fit(train_data, train_target)
     predicted = gs_clf.predict(test_data)
     acc = np.mean(predicted == test_target)
 
@@ -112,7 +106,6 @@ def train():
 
     print('Parameter-tuned cross-validation accuracy %s' % acc)
 
-    # text_clf.fit(all_train_data, all_train_target)
     gs_clf.fit(all_train_data, all_train_target)
 
     print('Final params: %s' % gs_clf.best_params_)
@@ -123,6 +116,7 @@ def train():
 
 def parse_metadata_from_path(path):
     """
+    Parse metadata from file path, e.g.
     ~/dhh17data/newspapers/newspapers/fin/1820/1457-4888/1457-4888_1820-01-08_1/alto/1457-4888_1820-01-08_1_003.xml
     """
 
@@ -135,6 +129,9 @@ def parse_metadata_from_path(path):
 
 
 def get_paper_name_by_issn(issue_df, issn):
+    """
+    Return paper name, based on its' ISSN number
+    """
     try:
         paper = issue_df.loc[issue_df['issn'] == issn]['paper'].iloc[0]
         return paper
@@ -151,9 +148,12 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     if args.job == 'train':
-        joblib.dump(train(), 'svm.pkl')
+        poems, nonpoems = read_training_data()
+        joblib.dump(train(poems, nonpoems), 'svm.pkl')
 
     elif args.job == 'predict':
+        # THIS PART OF CODE IS RATHER OBSOLETE, USE CLASSIFIER2 INSTEAD TO DO PREDICTIONS
+
         log.info('Loading classifier from pickle file')
         clf = joblib.load('svm.pkl')
 
