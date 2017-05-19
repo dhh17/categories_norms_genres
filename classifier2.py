@@ -11,10 +11,10 @@ import re
 import csv
 import gc
 from collections import defaultdict
+from itertools import chain
 
 import pandas
 from lxml import etree
-
 import numpy as np
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
@@ -31,7 +31,6 @@ logging.basicConfig(filename='classifier.log',
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 log = logging.getLogger(__name__)
-
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="Textblock classifier to poems and other text")
@@ -74,7 +73,9 @@ if __name__ == "__main__":
             file_prefix = split.groups()
             filegroup[file_prefix].append(filename)
 
-    print(len(filegroup))
+    log.info('Found %s newspapers, with %s files for path %s' % (len(filegroup),
+                                                                  len(list(chain(*filegroup.values()))),
+                                                                  args.directory))
 
     xmls = []
     for issue, issue_files in filegroup.items():
@@ -99,70 +100,37 @@ if __name__ == "__main__":
             for block in text_blocks:
                 data.append(parse_text_lines(list(block)))
                 metadata.append(paper_metadata + (block.get('ID'),))
+                # Metadata format: (year, month, day, issn, blockid)
 
         data_orig = data
         data = [d.replace('\n', ' ') for d in data]
 
-        # log.debug('Doing prediction')
-
         predicted = clf.predict(data)
 
-        data_trunc = tuple(d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94)
-        metadata = tuple(d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94)
-
-        # log.debug('Prediction done, writing results to files.')
+        data_trunc = [d for i, d in enumerate(data_orig) if predicted[i] and len(d) >= 94]
+        metadata = [d for i, d in enumerate(metadata) if predicted[i] and len(data_orig[i]) >= 94]
 
         if not data_trunc:
             continue
 
+        blockids = [md[-1] for md in metadata]
+        poemtext = '\n'.join(d for d in data_trunc)
+
+        year, month, day, issn, _ = metadata[0]  # Just take first one because they all should be same
+
+        paper = get_paper_name_by_issn(issues, issn)
+
         with open('foundpoems/found_poems.csv', 'a', newline='') as fp:
             writer = csv.writer(fp, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
 
-            poemtext = ''
-            prev_vector = None
-            blockids = []
-            year, month, day, issn, blockid, paper = (0, 0, 0, 0, 0, 0)
+            log.debug('Updated CSV file')
 
-            for i, d in enumerate(data_trunc):
+        poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'. \
+            format(year=year, month=month, day=day, paper=paper, blocks=' '.join(blockids))
+        poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
+        poem_filename += '.txt'
 
-                year, month, day, issn, blockid = metadata[i]
-
-                paper = get_paper_name_by_issn(issues, issn)
-
-                if prev_vector == (year, month, day, issn):
-                    if poemtext:
-                        poemtext += "\n"
-                    poemtext += d
-                    blockids.append(blockid)
-                else:
-                    if poemtext:
-                        year2, month2, day2, issn2 = prev_vector
-                        paper2 = get_paper_name_by_issn(issues, issn2)
-
-                        writer.writerow([poemtext.replace('\n', ' '), year2, month2, day2, paper2, issn2])
-
-                        poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
-                                        format(year=year2, month=month2, day=day2, paper=paper2, blocks=' '.join(blockids))
-                        poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
-                        poem_filename += '.txt'
-                        with open(poem_filename, 'w', newline='') as textp:
-                            textp.write(poemtext)
-                            log.debug('Written poem to file %s' % poem_filename)
-
-                    poemtext = d
-                    blockids = [blockid]
-
-                prev_vector = (year, month, day, issn)
-
-            if year:
-                writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
-                log.debug('Updated CSV file')
-
-                poem_filename = 'foundpoems/{year}_{month}_{day}_{paper} {blocks}'.\
-                                format(year=year, month=month, day=day, paper=paper, blocks=' '.join(blockids))
-                poem_filename = (poem_filename[:240] + ' TRUNCATED') if len(poem_filename) > 247 else poem_filename
-                poem_filename += '.txt'
-
-                with open(poem_filename, 'w', newline='') as textp:
-                    textp.write(poemtext)
-                    log.debug('Written poem to file %s' % poem_filename)
+        with open(poem_filename, 'w', newline='') as textp:
+            textp.write(poemtext)
+            log.debug('Written poem to file %s' % poem_filename)
