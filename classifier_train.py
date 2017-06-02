@@ -15,12 +15,15 @@ import pandas
 from lxml import etree
 
 import numpy as np
+from sklearn.base import BaseEstimator
+from sklearn.base import TransformerMixin
 from sklearn.externals import joblib
+from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import GridSearchCV
-from sklearn.pipeline import Pipeline
-
+from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.preprocessing import normalize, Normalizer
 from poem_reader import read_xml_directory, parse_text_lines, block_xpath
 
 logging.basicConfig(filename='classifier.log',
@@ -52,6 +55,23 @@ def read_training_data(path='./'):
     return poems, nonpoems
 
 
+class TextStats(BaseEstimator, TransformerMixin):
+    """Extract features from each document for DictVectorizer"""
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, texts):
+        regex = re.compile(r'^[A-Z]', re.MULTILINE)
+        stats = [{'length': np.average([len(row) for row in text.split('\n')]),
+                 'num_sentences': text.count('.'),
+                 'row_start_capitals': len(re.findall(regex, text))
+                 }
+                for text in texts]
+        # pprint.pprint(stats)
+        return stats
+
+
 def train(poems, nonpoems, quick=False):
     """
     Train the model based on given training data
@@ -65,7 +85,7 @@ def train(poems, nonpoems, quick=False):
     all_train_data = poems + nonpoems
     all_train_target = [1] * len(poems) + [0] * len(nonpoems)
 
-    all_train_data = [textdata.replace('\n', ' ').replace('w', 'v') for textdata in all_train_data]
+    all_train_data = [textdata.replace('w', 'v') for textdata in all_train_data]
 
     test_data = all_train_data[::2]  # TODO: Use less test data, and randomize it
     test_target = all_train_target[::2]
@@ -75,29 +95,50 @@ def train(poems, nonpoems, quick=False):
 
     # TODO: Use FeatureUnion to add more features in addition to tfidf
 
-    text_clf = Pipeline([('vect', CountVectorizer()),
-                         ('tfidf', TfidfTransformer()),
-                         ('clf', SGDClassifier(loss='hinge', penalty='l2',
-                                               alpha=1e-3, n_iter=5, random_state=42)),
-                         ])
+    tfidf = Pipeline([('vect', CountVectorizer()),
+                      ('tfidf', TfidfTransformer())])
 
-    text_clf.fit(train_data, train_target)
-    predicted = text_clf.predict(test_data)
+    text_feats = Pipeline([('stats', TextStats()),  # returns a list of dicts
+                           ('vect', DictVectorizer()),  # list of dicts -> feature matrix
+                           ('norm', Normalizer()),
+                           ])
+
+    combined_feats = FeatureUnion([('text_feats', text_feats),
+                                   ('word_freq', tfidf),
+                                   ])
+
+    combined_clf = Pipeline([('features', combined_feats),
+                             ('clf', SGDClassifier(loss='hinge', penalty='l2',
+                                               alpha=1e-3, n_iter=5, random_state=42)),
+                             ])
+
+    combined_clf.fit(train_data, train_target)
+    predicted = combined_clf.predict(test_data)
     acc = np.mean(predicted == test_target)
+
+    # text_clf = Pipeline([('vect', CountVectorizer()),
+    #                      ('tfidf', TfidfTransformer()),
+    #                      ('clf', SGDClassifier(loss='hinge', penalty='l2',
+    #                                            alpha=1e-3, n_iter=5, random_state=42)),
+    #                      ])
+    #
+    # text_clf.fit(train_data, train_target)
+    # predicted = text_clf.predict(test_data)
+    # acc = np.mean(predicted == test_target)
 
     print('Cross-validation accuracy %s' % acc)
 
     if quick:
-        return text_clf
+        return combined_clf
 
     parameters = {'vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
-                  'tfidf__use_idf': (True, False),
-                  'clf__alpha': (1e-2, 1e-3, 1e-4, 1e-5, 1e-6),
+                  # 'tfidf__use_idf': (True, False),
+                  'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
                   'clf__penalty': ('l1', 'l2', 'elasticnet'),
                   'clf__loss': ('hinge', 'log'),
-                  'clf__n_iter': (3, 4, 5, 6, 7)}
+                  'clf__n_iter': (3, 4, 5, 6)}
 
-    gs_clf = GridSearchCV(text_clf, parameters, n_jobs=-1)
+    gs_clf = GridSearchCV(combined_clf, parameters, n_jobs=-1)
 
     gs_clf = gs_clf.fit(train_data, train_target)
 

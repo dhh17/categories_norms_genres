@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 # Metadata format: (year, month, day, issn, blockid)
 
         data_orig = data
-        data = [d.replace('\n', ' ') for d in data]
+        # data = [d.replace('\n', ' ') for d in data]
 
         predicted = clf.predict(data)
 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
         with open('foundpoems/found_poems.csv', 'a', newline='') as fp:
             writer = csv.writer(fp, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            writer.writerow([poemtext.replace('\n', ' '), year, month, day, paper, issn])
+            writer.writerow([poemtext, year, month, day, paper, issn])
 
             log.debug('Updated CSV file')
 
