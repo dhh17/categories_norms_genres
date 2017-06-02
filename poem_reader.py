@@ -74,7 +74,12 @@ def get_block_texts(xmls, poem_block_ids):
 
 
 def format_path(doc, issues):
-    issue_no = issues.loc[issues['url'] == doc['URL']]['no'].iloc[0]
+    try:
+        issue_no = issues.loc[issues['url'] == doc['URL']]['no'].iloc[0]
+    except:
+        print('No issue number found for %s %s %s' % (doc['Date'], doc['Paper'], doc['TextblockID']))
+        issue_no = '*'
+
     date = doc['Date'].to_pydatetime().date()
     formatted = 'newspapers/fin/{y}/{issn}/{issn}_{isodate}_{issue}/alto/'.\
         format(issn=doc['ISSN'], y=date.year, isodate=date.isoformat(), issue=issue_no)
