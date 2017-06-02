@@ -22,7 +22,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
-from classifier_train import parse_metadata_from_path, get_paper_name_by_issn
+from classifier_train import parse_metadata_from_path, get_paper_name_by_issn, TextStats
 from poem_reader import read_xml_directory, parse_text_lines, block_xpath
 
 logging.basicConfig(filename='classifier.log',
@@ -98,7 +98,7 @@ if __name__ == "__main__":
             paper_metadata = parse_metadata_from_path(filename)
 
             for block in text_blocks:
-                data.append(parse_text_lines(list(block)))
+                data.append(parse_text_lines(list(block)).replace('w', 'v').replace('W', 'V'))
                 metadata.append(paper_metadata + (block.get('ID'),))
                 # Metadata format: (year, month, day, issn, blockid)
 
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         year, month, day, issn, _ = metadata[0]  # Just take first one because they all should be same
 
-        paper = get_paper_name_by_issn(issues, issn)
+        paper = get_paper_name_by_issn(issues, issn) or issn
 
         with open('foundpoems/found_poems.csv', 'a', newline='') as fp:
             writer = csv.writer(fp, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)

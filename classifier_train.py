@@ -62,7 +62,7 @@ class TextStats(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, texts):
-        regex = re.compile(r'^[A-Z]', re.MULTILINE)
+        regex = re.compile(r'^\s*[A-Z]', re.MULTILINE)
         stats = [{'length': np.average([len(row) for row in text.split('\n')]),
                  'num_sentences': text.count('.'),
                  'row_start_capitals': len(re.findall(regex, text))
@@ -77,7 +77,7 @@ def train(poems, nonpoems, quick=False):
     Train the model based on given training data
     :return:
     """
-    nonpoems = nonpoems[::5]  # TODO: Use skipped as test data?
+    nonpoems = nonpoems[::2]  # TODO: Use skipped as test data?
 
     print(len(poems))
     print(len(nonpoems))
@@ -85,7 +85,7 @@ def train(poems, nonpoems, quick=False):
     all_train_data = poems + nonpoems
     all_train_target = [1] * len(poems) + [0] * len(nonpoems)
 
-    all_train_data = [textdata.replace('w', 'v') for textdata in all_train_data]
+    all_train_data = [textdata.replace('w', 'v').replace('W', 'V') for textdata in all_train_data]
 
     test_data = all_train_data[::2]  # TODO: Use less test data, and randomize it
     test_target = all_train_target[::2]
@@ -131,26 +131,32 @@ def train(poems, nonpoems, quick=False):
     if quick:
         return combined_clf
 
-    parameters = {'vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    parameters = {'features__word_freq__vect__ngram_range': [(1, 3)],
+                  # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
                   # 'tfidf__use_idf': (True, False),
-                  'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
-                  'clf__penalty': ('l1', 'l2', 'elasticnet'),
+                  'clf__alpha': (1e-4, 1e-5, 1e-6),
+                  # 'clf__alpha': (1e-5,),
+                  # 'clf__penalty': ('l1', 'l2', 'elasticnet'),
                   'clf__loss': ('hinge', 'log'),
-                  'clf__n_iter': (3, 4, 5, 6)}
+                  'clf__n_iter': (3, 4, 5),
+                  }
+
+    # TODO: Search for more parameters and more values at some point
 
     gs_clf = GridSearchCV(combined_clf, parameters, n_jobs=-1)
 
     gs_clf = gs_clf.fit(train_data, train_target)
 
-    predicted = gs_clf.predict(test_data)
-    acc = np.mean(predicted == test_target)
-
-    print(predicted)
     print(gs_clf.best_params_)
 
     print('Parameter-tuned cross-validation accuracy %s' % acc)
 
     gs_clf.fit(all_train_data, all_train_target)
+
+    predicted = gs_clf.predict(test_data)
+    acc = np.mean(predicted == test_target)
+
+    print(np.average(predicted))
 
     print('Final params: %s' % gs_clf.best_params_)
     print('Best score: %s' % gs_clf.best_score_)
