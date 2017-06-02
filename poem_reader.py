@@ -14,6 +14,7 @@ from lxml import etree
 ns = {'kk': 'kk-ocr'}
 block_xpath = etree.XPath("//kk:TextBlock", namespaces=ns)
 
+
 def read_xml_directory(path):
     """
     Read XML files from path, parse them, and return them as list
@@ -54,7 +55,6 @@ def get_block_texts(xmls, poem_block_ids):
     Find an element by block_id from a list of lxml trees
     """
 
-
     poems = []
     nonpoems = []
 
@@ -62,10 +62,13 @@ def get_block_texts(xmls, poem_block_ids):
         text_blocks = block_xpath(xml)
 
         for block in text_blocks:
+            text = parse_text_lines(list(block))
+            text = text.replace('w', 'v')
+
             if block.get('ID') in poem_block_ids:
-                poems.append(parse_text_lines(list(block)))
+                poems.append(text)
             else:
-                nonpoems.append(parse_text_lines(list(block)))
+                nonpoems.append(text)
 
     return poems, nonpoems
 

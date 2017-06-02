@@ -52,7 +52,7 @@ def read_training_data(path='./'):
     return poems, nonpoems
 
 
-def train(poems, nonpoems):
+def train(poems, nonpoems, quick=False):
     """
     Train the model based on given training data
     :return:
@@ -65,7 +65,7 @@ def train(poems, nonpoems):
     all_train_data = poems + nonpoems
     all_train_target = [1] * len(poems) + [0] * len(nonpoems)
 
-    all_train_data = [d.replace('\n', ' ') for d in all_train_data]
+    all_train_data = [textdata.replace('\n', ' ').replace('w', 'v') for textdata in all_train_data]
 
     test_data = all_train_data[::2]  # TODO: Use less test data, and randomize it
     test_target = all_train_target[::2]
@@ -86,6 +86,9 @@ def train(poems, nonpoems):
     acc = np.mean(predicted == test_target)
 
     print('Cross-validation accuracy %s' % acc)
+
+    if quick:
+        return text_clf
 
     parameters = {'vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
                   'tfidf__use_idf': (True, False),
@@ -145,11 +148,12 @@ if __name__ == "__main__":
     argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
     argparser.add_argument("--dir", help="Directory to classify")
     argparser.add_argument("--newfile", help="Create new CSV file", dest='newfile', action='store_true')
+    argparser.add_argument("--quick-training", help="Train the model more quick", dest='quick', action='store_true')
     args = argparser.parse_args()
 
     if args.job == 'train':
         poems, nonpoems = read_training_data()
-        joblib.dump(train(poems, nonpoems), 'svm.pkl')
+        joblib.dump(train(poems, nonpoems, args.quick), 'svm.pkl')
 
     elif args.job == 'predict':
         # THIS PART OF CODE IS RATHER OBSOLETE, USE CLASSIFIER2 INSTEAD TO DO PREDICTIONS
