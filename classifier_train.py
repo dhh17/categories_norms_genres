@@ -63,8 +63,8 @@ class TextStats(BaseEstimator, TransformerMixin):
 
     def transform(self, texts):
         regex = re.compile(r'^\s*[A-Z]', re.MULTILINE)
-        stats = [{'length': np.average([len(row) for row in text.split('\n')]),
-                 'num_sentences': text.count('.'),
+        stats = [{'row_length': np.average([len(row) for row in text.split('\n')]),
+                 'dots': text.count('.'),
                  'row_start_capitals': len(re.findall(regex, text))
                  }
                 for text in texts]
@@ -107,9 +107,9 @@ def train(poems, nonpoems, quick=False):
                                    ('word_freq', tfidf),
                                    ])
 
+    sgd = SGDClassifier(loss='hinge', penalty='l2', alpha=1e-3, n_iter=5, random_state=42)
     combined_clf = Pipeline([('features', combined_feats),
-                             ('clf', SGDClassifier(loss='hinge', penalty='l2',
-                                               alpha=1e-3, n_iter=5, random_state=42)),
+                             ('clf', sgd),
                              ])
 
     combined_clf.fit(train_data, train_target)
@@ -127,18 +127,19 @@ def train(poems, nonpoems, quick=False):
     # acc = np.mean(predicted == test_target)
 
     print('Cross-validation accuracy %s' % acc)
+    print('Weights %s' % sgd.coef_[0][:3])
 
     if quick:
         return combined_clf
 
-    parameters = {'features__word_freq__vect__ngram_range': [(1, 3)],
-                  # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
-                  # 'tfidf__use_idf': (True, False),
-                  'clf__alpha': (1e-4, 1e-5, 1e-6),
+    parameters = {# 'features__word_freq__vect__ngram_range': [(1, 3)],
+                  'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
+                  #'features__word_freq__tfidf__use_idf': (True, False),
+                  'clf__alpha': (1e-4, 1e-5, 1e-6, 1e-7),
                   # 'clf__alpha': (1e-5,),
                   # 'clf__penalty': ('l1', 'l2', 'elasticnet'),
                   'clf__loss': ('hinge', 'log'),
-                  'clf__n_iter': (3, 4, 5),
+                  'clf__n_iter': (3, 4, 5, 6),
                   }
 
     # TODO: Search for more parameters and more values at some point
@@ -148,8 +149,8 @@ def train(poems, nonpoems, quick=False):
     gs_clf = gs_clf.fit(train_data, train_target)
 
     print(gs_clf.best_params_)
-
     print('Parameter-tuned cross-validation accuracy %s' % acc)
+    # print('Weights %s' % gs_clf.best_estimator_.coef_[0][:3])  # TODO
 
     gs_clf.fit(all_train_data, all_train_target)
 
@@ -160,6 +161,7 @@ def train(poems, nonpoems, quick=False):
 
     print('Final params: %s' % gs_clf.best_params_)
     print('Best score: %s' % gs_clf.best_score_)
+    # print('Weights %s' % gs_clf.best_estimator_.coef_[0][:3])  # TODO
 
     return gs_clf
 
@@ -195,7 +197,7 @@ if __name__ == "__main__":
     argparser.add_argument("job", help="Job to do", choices=['train', 'predict'])
     argparser.add_argument("--dir", help="Directory to classify")
     argparser.add_argument("--newfile", help="Create new CSV file", dest='newfile', action='store_true')
-    argparser.add_argument("--quick-training", help="Train the model more quick", dest='quick', action='store_true')
+    argparser.add_argument("--quick", help="Train the model more quick", dest='quick', action='store_true')
     args = argparser.parse_args()
 
     if args.job == 'train':
