@@ -63,7 +63,7 @@ def get_block_texts(xmls, poem_block_ids):
 
         for block in text_blocks:
             text = parse_text_lines(list(block))
-            text = text.replace('w', 'v')
+            text = text.replace('w', 'v').replace('W', 'V')
 
             if block.get('ID') in poem_block_ids:
                 poems.append(text)
