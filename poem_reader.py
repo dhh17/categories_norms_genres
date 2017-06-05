@@ -93,7 +93,12 @@ if __name__ == "__main__":
 
     data_root = args.dataroot
 
-    docs = pandas.read_csv('data/docs.csv', sep='\t', parse_dates=[1], dayfirst=True)
+    docs = pandas.read_csv('data/index_poemblocks.csv', sep='\t', parse_dates=[1], dayfirst=True)
+    extra_docs = pandas.read_csv('data/non-index_poemblocks.csv', sep='\t', parse_dates=[1], dayfirst=True)
+
+    docs = pandas.concat([docs, extra_docs])
+    print('Got %s poem textblock IDs' % len(docs))
+
     issues = pandas.read_csv('data/issue_numbers.csv', sep=',')
 
     doc_ids = defaultdict(list)
