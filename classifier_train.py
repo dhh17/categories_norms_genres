@@ -99,7 +99,7 @@ def train(poems, nonpoems, quick=False):
                                    ('word_freq', tfidf),
                                    ])
 
-    sgd = SGDClassifier(loss='hinge',
+    sgd = SGDClassifier(loss='log',  # Logistic model by default
                         penalty='l2',
                         alpha=0.0001,
                         n_iter=5,
@@ -110,48 +110,20 @@ def train(poems, nonpoems, quick=False):
                              ])
 
     if quick:
-        test_data = all_train_data[::2]
-        test_target = all_train_target[::2]
+        gs_clf = combined_clf
+    else:
+        parameters = {
+            # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
+            'features__word_freq__vect__max_df': [0.9, 0.8, 0.7, 0.6, 0.5],
+            'features__word_freq__vect__max_features': [None, 500, 1000, 1500, 10000, 20000],
+            'features__text_feats__norm__norm': ('l1', 'l2', 'max'),
+            'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
+             'clf__penalty': ('l1', 'l2', 'elasticnet'),
+            'clf__loss': ('hinge', 'log'),
+            'clf__n_iter': (3, 4, 5, 6),
+        }
 
-        train_data = all_train_data[1::2]
-        train_target = all_train_target[1::2]
-
-        combined_clf.fit(train_data, train_target)
-        predicted = combined_clf.predict(test_data)
-        acc = np.mean(predicted == test_target)
-
-        # text_clf = Pipeline([('vect', CountVectorizer()),
-        #                      ('tfidf', TfidfTransformer()),
-        #                      ('clf', SGDClassifier(loss='hinge', penalty='l2',
-        #                                            alpha=1e-3, n_iter=5, random_state=42)),
-        #                      ])
-        #
-        # text_clf.fit(train_data, train_target)
-        # predicted = text_clf.predict(test_data)
-        # acc = np.mean(predicted == test_target)
-
-        print('Cross-validation accuracy %s' % acc)
-        print('Text feature weights %s' % sgd.coef_[0][:4])
-
-        return combined_clf
-
-    parameters = {
-        # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
-        'features__word_freq__vect__max_df': [0.9, 0.8, 0.7, 0.6, 0.5],
-        'features__word_freq__vect__max_features': [None, 500, 1000, 1500, 10000, 20000],
-        'features__text_feats__norm__norm': ('l1', 'l2', 'max'),
-        'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
-         'clf__penalty': ('l1', 'l2', 'elasticnet'),
-        # 'clf__loss': ('hinge', 'log'),
-        'clf__n_iter': (3, 4, 5, 6),
-    }
-
-    gs_clf = GridSearchCV(combined_clf, parameters, n_jobs=-1)
-
-    # gs_clf = gs_clf.fit(train_data, train_target)
-    #
-    # print(gs_clf.best_params_)
-    # print('Parameter-tuned cross-validation accuracy %s' % acc)
+        gs_clf = GridSearchCV(combined_clf, parameters, n_jobs=-1)
 
     gs_clf.fit(all_train_data, all_train_target)
 
