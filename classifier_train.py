@@ -87,20 +87,20 @@ def train(poems, nonpoems, quick=False):
 
     all_train_data = [textdata.replace('w', 'v').replace('W', 'V') for textdata in all_train_data]
 
-    tfidf = Pipeline([('vect', CountVectorizer()),
+    tfidf = Pipeline([('vect', CountVectorizer(max_df=1.0, max_features=10000)),
                       ('tfidf', TfidfTransformer())])
 
     text_feats = Pipeline([('stats', TextStats()),  # returns a list of dicts
                            ('vect', DictVectorizer()),  # list of dicts -> feature matrix
-                           ('norm', Normalizer()),
+                           ('norm', Normalizer(norm='l2')),
                            ])
 
     combined_feats = FeatureUnion([('text_feats', text_feats),
                                    ('word_freq', tfidf),
                                    ])
 
-    sgd = SGDClassifier(loss='log',  # Logistic model by default
-                        penalty='l2',
+    sgd = SGDClassifier(loss='hinge',
+                        penalty='elasticnet',
                         alpha=0.0001,
                         n_iter=5,
                         random_state=42)
@@ -110,11 +110,11 @@ def train(poems, nonpoems, quick=False):
                              ])
 
     if quick:
-        gs_clf = combined_clf
+        gs_clf = GridSearchCV(combined_clf, {})
     else:
         parameters = {
             # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
-            'features__word_freq__vect__max_df': [0.9, 0.8, 0.7, 0.6, 0.5],
+            'features__word_freq__vect__max_df': [1.0, 0.6, 0.5, 0.4],
             'features__word_freq__vect__max_features': [None, 500, 1000, 1500, 10000, 20000],
             'features__text_feats__norm__norm': ('l1', 'l2', 'max'),
             'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
