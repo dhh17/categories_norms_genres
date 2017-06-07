@@ -27,7 +27,7 @@ from poem_reader import read_xml_directory, parse_text_lines, block_xpath
 
 logging.basicConfig(filename='classifier.log',
                     filemode='a',
-                    level=logging.DEBUG,
+                    level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 log = logging.getLogger(__name__)
@@ -81,6 +81,9 @@ if __name__ == "__main__":
     for issue, issue_files in filegroup.items():
         data = []
         metadata = []
+
+        # TODO: Order the textblocks based on textblock coordinates
+
         for filename in issue_files:
 
             parsed = None
@@ -101,6 +104,9 @@ if __name__ == "__main__":
                 data.append(parse_text_lines(list(block)).replace('w', 'v').replace('W', 'V'))
                 metadata.append(paper_metadata + (block.get('ID'),))
                 # Metadata format: (year, month, day, issn, blockid)
+
+        if not data:
+            continue  # One XML file has no text blocks
 
         data_orig = data
         # data = [d.replace('\n', ' ') for d in data]

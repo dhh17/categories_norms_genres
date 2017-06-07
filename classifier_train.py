@@ -115,7 +115,7 @@ def train(poems, nonpoems, quick=False):
         parameters = {
             # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
             'features__word_freq__vect__max_df': [1.0, 0.6, 0.5, 0.4],
-            'features__word_freq__vect__max_features': [None, 500, 1000, 1500, 10000, 20000],
+            'features__word_freq__vect__max_features': [None, 8000, 8500, 9000, 9500, 10000, 10500, 11000, 11500, 12000, 20000],
             'features__text_feats__norm__norm': ('l1', 'l2', 'max'),
             'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
              'clf__penalty': ('l1', 'l2', 'elasticnet'),
