@@ -86,6 +86,21 @@ def format_path(doc, issues):
 
     return formatted
 
+
+def read_blocks_from_csv(file):
+    """
+    Read text blocks from a CSV files first column
+    """
+    blockgroups_df = pandas.read_csv(file, header=None)
+    all_blocks = []
+    for blockgroup in blockgroups_df.iterrows():
+        text = blockgroup[1][0]
+        blocks = text.split('\n\n')
+        all_blocks += blocks
+
+    return all_blocks
+
+
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="Newspaper XML parser", fromfile_prefix_chars='@')
     argparser.add_argument("dataroot", help="Path to DHH 17 newspapers directory")
@@ -120,14 +135,14 @@ if __name__ == "__main__":
         poem, nonpoem = get_block_texts(xmls, doc_ids[doc[1]['URL']])
 
         date = doc[1]['Date'].to_pydatetime().date()
-        with open('poems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
-            for line in poem:
-                fp.write("%s\n" % line)
-
-        with open('nonpoems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
-            for line in nonpoem:
-                fp.write("%s\n" % line)
-
+        # with open('poems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
+        #     for line in poem:
+        #         fp.write("%s\n" % line)
+        #
+        # with open('nonpoems/{journal}_{date}.txt'.format(journal=doc[1]['Paper'], date=date), 'w', newline='') as fp:
+        #     for line in nonpoem:
+        #         fp.write("%s\n" % line)
+        #
         date = doc[1]['Date'].to_pydatetime().date()
         for (i, block) in enumerate(poem):
             with open('poemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
@@ -136,3 +151,20 @@ if __name__ == "__main__":
         for i, block in enumerate(nonpoem):
             with open('nonpoemblocks/{journal}_{date}_{i}.txt'.format(journal=doc[1]['Paper'], date=date, i=i), 'w', newline='') as fp:
                 fp.write(block)
+
+    print('Reading additional blocks')
+
+    additional_poems = read_blocks_from_csv('data/poem_texts.csv')
+    additional_nonpoems = read_blocks_from_csv('data/nonpoem_texts.csv')
+
+    print('Read %s additional poems from CSV' % len(additional_poems))
+    print('Read %s additional nonpoems from CSV' % len(additional_nonpoems))
+
+    for (i, block) in enumerate(additional_poems):
+        with open('poemblocks/additional_poem_block_{i}.txt'.format(i=i), 'w', newline='') as fp:
+            fp.write(block)
+
+    for (i, block) in enumerate(additional_nonpoems):
+        with open('nonpoemblocks/additional_nonpoem_block_{i}.txt'.format(i=i), 'w', newline='') as fp:
+            fp.write(block)
+
