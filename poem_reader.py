@@ -91,7 +91,7 @@ def read_blocks_from_csv(file):
     """
     Read text blocks from a CSV files first column
     """
-    blockgroups_df = pandas.read_csv(file, header=None)
+    blockgroups_df = pandas.read_csv(file, header=None, sep="\t")
     all_blocks = []
     for blockgroup in blockgroups_df.iterrows():
         text = blockgroup[1][0]
