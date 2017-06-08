@@ -114,13 +114,13 @@ def train(poems, nonpoems, quick=False):
     else:
         parameters = {
             # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
-            'features__word_freq__vect__max_df': [1.0, 0.6, 0.5, 0.4],
-            'features__word_freq__vect__max_features': [None, 8000, 8500, 9000, 9500, 10000, 10500, 11000, 11500, 12000, 20000],
+            'features__word_freq__vect__max_df': [1.0, 0.6, 0.4],
+            'features__word_freq__vect__max_features': [None, 10000, 12000, 19000, 20000, 21000, 22000, 23000, 24000, 25000, 26000],
             'features__text_feats__norm__norm': ('l1', 'l2', 'max'),
             'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
              'clf__penalty': ('l1', 'l2', 'elasticnet'),
             'clf__loss': ('hinge', 'log'),
-            'clf__n_iter': (3, 4, 5, 6),
+            'clf__n_iter': (4, 5, 6, 7, 8),
         }
 
         gs_clf = GridSearchCV(combined_clf, parameters, n_jobs=-1)
