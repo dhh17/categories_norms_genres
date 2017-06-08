@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 date
+
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1820 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1821 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1822 &
@@ -33,6 +34,8 @@ python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1847 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1848 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1849
 
+wait
+
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1850 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1851 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1852 &
@@ -55,6 +58,8 @@ python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1867 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1868 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1869
 
+wait
+
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1870 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1871 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1872 &
@@ -75,16 +80,19 @@ python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1885 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1886 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1887 &
 python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1888 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1889
+python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1889 &
+python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1890
 
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1890 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1891 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1892 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1893 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1894 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1895 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1896 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1897 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1898 &
-python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1899
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1891 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1892 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1893 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1894 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1895 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1896 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1897 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1898 &
+#python3 classify.py ~/dhh17data/newspapers/newspapers/fin/1899
+
+wait
+
 date
