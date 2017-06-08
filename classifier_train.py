@@ -87,7 +87,7 @@ def train(poems, nonpoems, quick=False):
 
     all_train_data = [textdata.replace('w', 'v').replace('W', 'V') for textdata in all_train_data]
 
-    tfidf = Pipeline([('vect', CountVectorizer(max_df=1.0, max_features=10000)),
+    tfidf = Pipeline([('vect', CountVectorizer(max_df=1.0, max_features=25400)),
                       ('tfidf', TfidfTransformer())])
 
     text_feats = Pipeline([('stats', TextStats()),  # returns a list of dicts
@@ -100,9 +100,9 @@ def train(poems, nonpoems, quick=False):
                                    ])
 
     sgd = SGDClassifier(loss='hinge',
-                        penalty='elasticnet',
+                        penalty='l2',
                         alpha=0.0001,
-                        n_iter=5,
+                        n_iter=6,
                         random_state=42)
 
     combined_clf = Pipeline([('features', combined_feats),
@@ -114,11 +114,11 @@ def train(poems, nonpoems, quick=False):
     else:
         parameters = {
             # 'features__word_freq__vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
-            'features__word_freq__vect__max_df': [1.0, 0.6, 0.4],
-            'features__word_freq__vect__max_features': [None, 10000, 12000, 19000, 20000, 21000, 22000, 23000, 24000, 25000, 26000],
+            'features__word_freq__vect__max_df': [1.0, 0.5],
+            'features__word_freq__vect__max_features': [None, 20000, 25000, 25200, 25400, 25600, 26000],
             'features__text_feats__norm__norm': ('l1', 'l2', 'max'),
             'clf__alpha': (1e-3, 1e-4, 1e-5, 1e-6),
-             'clf__penalty': ('l1', 'l2', 'elasticnet'),
+            'clf__penalty': ('l2', 'elasticnet'),
             'clf__loss': ('hinge', 'log'),
             'clf__n_iter': (4, 5, 6, 7, 8),
         }
