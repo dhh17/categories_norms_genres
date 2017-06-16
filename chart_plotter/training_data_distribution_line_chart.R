@@ -16,6 +16,6 @@ draw_number_of_poems_by_year_chart = function(data) {
   points(years, number_of_poems, col = "red", pch = 19)
 }
 
-data = read.csv("../data/docs.csv", sep = "\t")
-data$Date = strtoi(substr(data$Date, 7, 10))
+data = read.csv("../data/non-index_poemblocks.csv", sep = "\t")
+data$Date = strtoi(format(as.Date(data$Date,'%d/%m/%Y'),'%Y'))
 draw_number_of_poems_by_year_chart(data)
