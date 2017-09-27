@@ -61,14 +61,13 @@ class TextStats(BaseEstimator, TransformerMixin):
 
     def transform(self, texts):
         capital_regex = re.compile(r'^\s*[A-Z]', re.MULTILINE)
-        one_word_regex = re.compile(r'^\S+$', re.MULTILINE)
+        one_word_regex = re.compile(r'^\S+\W*$', re.MULTILINE)
         stats = [{'row_length': np.average([len(row) for row in text.split('\n')]),
-                  'one_word_rows': len(re.findall(one_word_regex, text)),
-                  'dots': text.count('.'),
-                  'row_start_capitals': len(re.findall(capital_regex, text))
+                  'one_word_rows': len(re.findall(one_word_regex, text)) / (len(text.split('\n')) or 1),
+                  'dots': text.count('.') / (len(text) or 1),
+                  'row_start_capitals': len(re.findall(capital_regex, text)) / (len(text.split('\n')) or 1)
                   }
                  for text in texts]
-        # pprint.pprint(stats)
         return stats
 
 
